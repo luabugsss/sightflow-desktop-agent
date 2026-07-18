@@ -6,6 +6,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { ProviderAdapter, ProviderEvent, ProviderInput } from '../core/session-types'
 
 export const BUILTIN_DOUBAO_PROVIDER_ID = 'volcengine-ark'
+export const BUILTIN_MINIMAX_M3_PROVIDER_ID = 'minimax-m3'
+
+const BUILTIN_PROVIDER_IDS = [BUILTIN_DOUBAO_PROVIDER_ID, BUILTIN_MINIMAX_M3_PROVIDER_ID] as const
+type BuiltinProviderId = (typeof BUILTIN_PROVIDER_IDS)[number]
 
 /**
  * 内置 doubao（火山方舟）provider 的资源目录。
@@ -16,6 +20,30 @@ function getBuiltinProviderDir(id: string): string {
     ? path.join(process.resourcesPath, 'app.asar.unpacked')
     : app.getAppPath()
   return path.join(root, 'resources', 'providers', id)
+}
+
+export function isBuiltinProviderId(id: string | null | undefined): id is BuiltinProviderId {
+  return BUILTIN_PROVIDER_IDS.includes(id as BuiltinProviderId)
+}
+
+export function isBuiltinDoubaoProviderId(id: string | null | undefined): boolean {
+  return id === BUILTIN_DOUBAO_PROVIDER_ID
+}
+
+function normalizeBuiltinProviderId(id: string): BuiltinProviderId | null {
+  if (id === 'doubao') return BUILTIN_DOUBAO_PROVIDER_ID
+  return isBuiltinProviderId(id) ? id : null
+}
+
+function parseBuiltinProviderUrl(manifestUrl: string): BuiltinProviderId | null {
+  if (!manifestUrl.startsWith('builtin://')) return null
+
+  try {
+    const url = new URL(manifestUrl)
+    return normalizeBuiltinProviderId(url.hostname || url.pathname.replace(/^\/+/, ''))
+  } catch {
+    return normalizeBuiltinProviderId(manifestUrl.replace(/^builtin:\/\//, ''))
+  }
 }
 
 export type ProviderSchemaField =
@@ -132,6 +160,11 @@ export async function installProviderFromUrl(manifestUrl: string): Promise<Provi
     throw new Error('配置清单地址不能为空')
   }
 
+  const builtinId = parseBuiltinProviderUrl(normalizedUrl)
+  if (builtinId) {
+    return getBuiltinProviderInstallResult(builtinId)
+  }
+
   const manifestContent = await readUrlText(normalizedUrl)
   const manifest = validateManifest(JSON.parse(manifestContent))
   const entryUrl = new URL(manifest.entry, normalizedUrl).toString()
@@ -172,7 +205,16 @@ export async function getInstalledProviderManifest(
 
 /** 读取内置 doubao 的原始 manifest（保留 apiKey 字段，供调试 / 校验） */
 export async function getBuiltinDoubaoManifestRaw(): Promise<ProviderBundleManifest | null> {
-  const dir = getBuiltinProviderDir(BUILTIN_DOUBAO_PROVIDER_ID)
+  return getBuiltinProviderManifestRaw(BUILTIN_DOUBAO_PROVIDER_ID)
+}
+
+export async function getBuiltinProviderManifestRaw(
+  id: string
+): Promise<ProviderBundleManifest | null> {
+  const builtinId = normalizeBuiltinProviderId(id)
+  if (!builtinId) return null
+
+  const dir = getBuiltinProviderDir(builtinId)
   const manifestFile = path.join(dir, 'manifest.json')
   try {
     const content = await readFile(manifestFile, 'utf8')
@@ -188,15 +230,24 @@ export async function getBuiltinDoubaoManifestRaw(): Promise<ProviderBundleManif
  * - 同步从 required 列表里移除 apiKey
  */
 export async function getBuiltinDoubaoManifestForUi(): Promise<ProviderBundleManifest | null> {
-  const raw = await getBuiltinDoubaoManifestRaw()
+  return getBuiltinProviderManifestForUi(BUILTIN_DOUBAO_PROVIDER_ID)
+}
+
+export async function getBuiltinProviderManifestForUi(
+  id: string
+): Promise<ProviderBundleManifest | null> {
+  const raw = await getBuiltinProviderManifestRaw(id)
   if (!raw) return null
 
   const properties: Record<string, ProviderSchemaField> = {}
   for (const [key, field] of Object.entries(raw.configSchema.properties)) {
-    if (key === 'apiKey') continue
+    if (raw.id === BUILTIN_DOUBAO_PROVIDER_ID && key === 'apiKey') continue
     properties[key] = field
   }
-  const required = (raw.configSchema.required || []).filter((k) => k !== 'apiKey')
+  const required =
+    raw.id === BUILTIN_DOUBAO_PROVIDER_ID
+      ? (raw.configSchema.required || []).filter((k) => k !== 'apiKey')
+      : raw.configSchema.required || []
 
   return {
     ...raw,
@@ -210,9 +261,18 @@ export async function getBuiltinDoubaoManifestForUi(): Promise<ProviderBundleMan
 
 /** 内置 doubao 的虚拟 installed 描述（用于 provider:getInstalled 的回退） */
 export async function getBuiltinDoubaoInstalledInfo(): Promise<InstalledProviderInfo | null> {
-  const raw = await getBuiltinDoubaoManifestRaw()
+  return getBuiltinProviderInstalledInfo(BUILTIN_DOUBAO_PROVIDER_ID)
+}
+
+export async function getBuiltinProviderInstalledInfo(
+  id: string
+): Promise<InstalledProviderInfo | null> {
+  const builtinId = normalizeBuiltinProviderId(id)
+  if (!builtinId) return null
+
+  const raw = await getBuiltinProviderManifestRaw(builtinId)
   if (!raw) return null
-  const dir = getBuiltinProviderDir(BUILTIN_DOUBAO_PROVIDER_ID)
+  const dir = getBuiltinProviderDir(builtinId)
   return {
     id: raw.id,
     name: raw.name,
@@ -231,6 +291,26 @@ export async function loadBuiltinDoubaoProvider(
     throw new Error('内置 doubao provider 资源缺失')
   }
   return loadInstalledProvider(installed, providerConfig)
+}
+
+export async function loadBuiltinProvider(
+  id: string,
+  providerConfig: Record<string, any>
+): Promise<{ provider: ProviderAdapter; manifest: ProviderBundleManifest }> {
+  const installed = await getBuiltinProviderInstalledInfo(id)
+  if (!installed) {
+    throw new Error(`Builtin provider resource is missing: ${id}`)
+  }
+  return loadInstalledProvider(installed, providerConfig)
+}
+
+async function getBuiltinProviderInstallResult(id: string): Promise<ProviderInstallResult> {
+  const installed = await getBuiltinProviderInstalledInfo(id)
+  const manifest = await getBuiltinProviderManifestRaw(id)
+  if (!installed || !manifest) {
+    throw new Error(`Builtin provider resource is missing: ${id}`)
+  }
+  return { installed, manifest }
 }
 
 export function validateProviderConfig(

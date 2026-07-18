@@ -22,6 +22,9 @@ import {
   getInstalledProviderManifest,
   installProviderFromUrl,
   InstalledProviderInfo,
+  isBuiltinDoubaoProviderId,
+  isBuiltinProviderId,
+  loadBuiltinProvider,
   loadBuiltinDoubaoProvider,
   loadInstalledProvider
 } from './provider-bundle'
@@ -458,6 +461,10 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('settings:set', async (_event, data: Record<string, any>) => {
     const current = normalizeSettings(settingsStore.store)
+    const nextChatProviderConfig =
+      data.chatProvider && Object.prototype.hasOwnProperty.call(data.chatProvider, 'config')
+        ? data.chatProvider.config || {}
+        : current.chatProvider.config
     const next = {
       ...current,
       ...data,
@@ -468,10 +475,7 @@ app.whenReady().then(async () => {
       chatProvider: {
         ...current.chatProvider,
         ...(data.chatProvider || {}),
-        config: {
-          ...current.chatProvider.config,
-          ...(data.chatProvider?.config || {})
-        }
+        config: nextChatProviderConfig
       },
       capture: {
         ...current.capture,
@@ -804,9 +808,8 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
     const settings = normalizeSettings(rawConfig || settingsStore.store)
     const appType: AppType = settings.appType || 'wechat'
     const startupStrategy = resolveSettingsStrategy(appType, settings)
-    const providerNeedsVisionKey =
-      !settings.chatProvider.installed ||
-      settings.chatProvider.installed.id === BUILTIN_DOUBAO_PROVIDER_ID
+    const providerId = settings.chatProvider.installed?.id ?? BUILTIN_DOUBAO_PROVIDER_ID
+    const providerNeedsVisionKey = !settings.chatProvider.installed || isBuiltinDoubaoProviderId(providerId)
     const needsVisionKey = startupStrategy === 'vlm' || providerNeedsVisionKey
 
     if (needsVisionKey && !settings.vision.apiKey) {
@@ -824,7 +827,7 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
     } else {
       const installedManifest = await getInstalledProviderManifest(settings.chatProvider.installed)
       // doubao（无论是用户主动装的还是内置的）apiKey 由视觉密钥共享提供，不强校验
-      const isDoubao = settings.chatProvider.installed.id === BUILTIN_DOUBAO_PROVIDER_ID
+      const isDoubao = isBuiltinDoubaoProviderId(settings.chatProvider.installed.id)
       const required = (installedManifest?.configSchema?.required || []).filter(
         (key) => !(isDoubao && key === 'apiKey')
       )
@@ -844,7 +847,9 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
         ? { ...settings.chatProvider.config, apiKey: settings.vision.apiKey }
         : settings.chatProvider.config
 
-      const loaded = await loadInstalledProvider(settings.chatProvider.installed, effectiveConfig)
+      const loaded = isBuiltinProviderId(settings.chatProvider.installed.id)
+        ? await loadBuiltinProvider(settings.chatProvider.installed.id, effectiveConfig)
+        : await loadInstalledProvider(settings.chatProvider.installed, effectiveConfig)
       provider = loaded.provider
     }
 
@@ -876,8 +881,8 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
     recorder.startSession({
       appType,
       engineVersion: app.getVersion(),
-      providerId: settings.chatProvider.installed?.id ?? BUILTIN_DOUBAO_PROVIDER_ID,
-      model: settings.chatProvider.config?.model || FIXED_ARK_MODEL
+      providerId,
+      model: settings.chatProvider.config?.model || (isBuiltinDoubaoProviderId(providerId) ? FIXED_ARK_MODEL : providerId)
     })
 
     const onTrace = (input: TraceStepInput): void => {

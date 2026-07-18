@@ -175,6 +175,56 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
         }
       ]
     }
+  },
+  {
+    id: 'minimax-m3',
+    name: 'MiniMax M3',
+    description: 'Built-in MiniMax M3 provider for chat analysis and reply generation.',
+    version: '1.0.0',
+    manifestUrl: 'builtin://minimax-m3',
+    capabilities: ['chat'],
+    configSchema: {
+      fields: [
+        {
+          key: 'apiKey',
+          label: 'API Key',
+          type: 'password',
+          required: true,
+          placeholder: 'Enter MiniMax API Key'
+        },
+        {
+          key: 'model',
+          label: 'Model',
+          type: 'text',
+          required: true,
+          readonly: true,
+          defaultValue: 'MiniMax-M3'
+        },
+        {
+          key: 'baseURL',
+          label: 'Base URL',
+          type: 'url',
+          required: true,
+          defaultValue: 'https://api.minimax.io/v1'
+        },
+        {
+          key: 'thinking',
+          label: 'Thinking',
+          type: 'select',
+          defaultValue: 'adaptive',
+          options: [
+            { label: 'Adaptive', value: 'adaptive' },
+            { label: 'Disabled', value: 'disabled' }
+          ]
+        },
+        {
+          key: 'systemPrompt',
+          label: 'System Prompt',
+          type: 'textarea',
+          placeholder: 'Optional custom system prompt for MiniMax M3.'
+        }
+      ]
+    }
   }
 ]
 
