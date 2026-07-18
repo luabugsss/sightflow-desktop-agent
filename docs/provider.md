@@ -197,3 +197,4 @@ Thinking: adaptive
 ```
 
 MiniMax M3 Provider 使用 OpenAI 兼容的 `/chat/completions` 接口，并把桌面截图作为 `image_url` 传入。
+启用 `adaptive` thinking 时，Provider 会请求 `reasoning_split: true`，并在返回前防御性移除 `<think>...</think>` 内容，避免把推理过程发送到聊天窗口。

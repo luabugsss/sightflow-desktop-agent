@@ -85,6 +85,7 @@ async function requestReply({ screenshot, apiKey, baseURL, model, thinking, syst
       }
     ],
     thinking: { type: thinking },
+    reasoning_split: true,
     max_completion_tokens: 1024,
     stream: false
   }
@@ -106,9 +107,11 @@ async function requestReply({ screenshot, apiKey, baseURL, model, thinking, syst
   }
 
   const json = await response.json()
-  return json && json.choices && json.choices[0] && json.choices[0].message
-    ? json.choices[0].message.content || ''
-    : ''
+  const content =
+    json && json.choices && json.choices[0] && json.choices[0].message
+      ? json.choices[0].message.content || ''
+      : ''
+  return stripThinkingContent(content)
 }
 
 function buildMemorySection(memoryCards) {
@@ -140,6 +143,12 @@ function stripBase64Prefix(base64) {
 
 function trimTrailingSlash(value) {
   return String(value || DEFAULT_BASE_URL).replace(/\/+$/, '')
+}
+
+function stripThinkingContent(content) {
+  return String(content || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .trim()
 }
 
 async function safeReadText(response) {
