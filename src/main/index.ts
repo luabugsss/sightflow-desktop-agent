@@ -19,6 +19,8 @@ import {
   BUILTIN_DOUBAO_PROVIDER_ID,
   getBuiltinDoubaoInstalledInfo,
   getBuiltinDoubaoManifestForUi,
+  getBuiltinProviderInstalledInfo,
+  getBuiltinProviderManifestForUi,
   getInstalledProviderManifest,
   installProviderFromUrl,
   InstalledProviderInfo,
@@ -515,6 +517,16 @@ app.whenReady().then(async () => {
     const settings = normalizeSettings(settingsStore.store)
 
     // 用户安装过自定义 provider：原样返回
+    if (settings.chatProvider.installed && isBuiltinProviderId(settings.chatProvider.installed.id)) {
+      const installed = await getBuiltinProviderInstalledInfo(settings.chatProvider.installed.id)
+      const manifest = await getBuiltinProviderManifestForUi(settings.chatProvider.installed.id)
+      return {
+        installed,
+        manifest,
+        isBuiltinDefault: false
+      }
+    }
+
     if (settings.chatProvider.installed) {
       const manifest = await getInstalledProviderManifest(settings.chatProvider.installed)
       return {
