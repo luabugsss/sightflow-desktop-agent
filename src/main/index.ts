@@ -837,7 +837,9 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
       })
       provider = loaded.provider
     } else {
-      const installedManifest = await getInstalledProviderManifest(settings.chatProvider.installed)
+      const installedManifest = isBuiltinProviderId(settings.chatProvider.installed.id)
+        ? await getBuiltinProviderManifestForUi(settings.chatProvider.installed.id)
+        : await getInstalledProviderManifest(settings.chatProvider.installed)
       // doubao（无论是用户主动装的还是内置的）apiKey 由视觉密钥共享提供，不强校验
       const isDoubao = isBuiltinDoubaoProviderId(settings.chatProvider.installed.id)
       const required = (installedManifest?.configSchema?.required || []).filter(
