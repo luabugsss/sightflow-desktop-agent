@@ -828,11 +828,19 @@ function AgentPanel(): React.JSX.Element {
       ])
 
       const nextCatalog = mergeProviderCatalog(result?.catalog?.providers || [])
-      const nextActiveId = settings?.chatProvider?.installed?.id || 'doubao'
+      const nextActiveId = getCatalogProviderId(settings?.chatProvider?.installed?.id)
       setCatalog(nextCatalog)
       setCurrentSettings(settings || null)
       setActiveId(nextActiveId)
-      setSelectedId((current) => current || nextActiveId || BUILTIN_PROVIDER_CATALOG[0]?.id || nextCatalog[0]?.id || '')
+      setSelectedId((current) => {
+        const fallbackId = BUILTIN_PROVIDER_CATALOG[0]?.id || nextCatalog[0]?.id || ''
+        const hasCurrent = nextCatalog.some((provider) => provider.id === current)
+        const hasActive = nextCatalog.some((provider) => provider.id === nextActiveId)
+        if (!hasCurrent || current === fallbackId) {
+          return hasActive ? nextActiveId : fallbackId
+        }
+        return current
+      })
       setProviderDrafts((prev) => ({
         ...prev,
         doubao: {
@@ -1100,6 +1108,11 @@ function mergeProviderCatalog(remoteProviders: ProviderCatalogItem[]): ProviderC
     (provider) => !BUILTIN_PROVIDER_CATALOG.some((builtin) => builtin.id === provider.id)
   )
   return [...BUILTIN_PROVIDER_CATALOG, ...remoteOnly]
+}
+
+function getCatalogProviderId(providerId: string | null | undefined): string {
+  if (!providerId || providerId === 'volcengine-ark') return 'doubao'
+  return providerId
 }
 
 function getProviderDefaults(provider: ProviderCatalogItem | undefined): Record<string, string> {
