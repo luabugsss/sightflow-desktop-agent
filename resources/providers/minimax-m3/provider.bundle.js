@@ -32,7 +32,7 @@ export function createProvider(context) {
 
       const apiKey = providerConfig.apiKey
       if (!apiKey) {
-        yield { type: 'error', error: 'MiniMax M3 provider is missing API Key' }
+        yield { type: 'error', error: 'MiniMax provider is missing API Key' }
         return
       }
 
@@ -41,7 +41,7 @@ export function createProvider(context) {
         type: 'thinking',
         content: memorySection
           ? `MiniMax M3 is analyzing the chat (${input.memoryCards.length} memory cards loaded)...`
-          : 'MiniMax M3 is analyzing the chat...'
+          : 'MiniMax is analyzing the chat...'
       }
 
       try {
@@ -63,9 +63,9 @@ export function createProvider(context) {
       } catch (error) {
         const message = error && error.message ? error.message : String(error)
         if (context && context.host && typeof context.host.log === 'function') {
-          context.host.log(`MiniMax M3 provider error: ${message}`)
+          context.host.log(`MiniMax provider error: ${message}`)
         }
-        yield { type: 'error', error: message || 'MiniMax M3 provider request failed' }
+        yield { type: 'error', error: message || 'MiniMax provider request failed' }
       }
     }
   }

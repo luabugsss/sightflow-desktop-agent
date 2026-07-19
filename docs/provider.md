@@ -175,9 +175,9 @@ file:///path/to/sightflow-dev-desktop/resources/providers/volcengine-ark/manifes
 
 其他开发者需要把路径替换成自己机器上的仓库绝对路径，或者把 `manifest.json` 和 bundle 发布到可访问的 HTTPS 地址。
 
-## MiniMax M3 Provider
+## MiniMax Provider
 
-本项目内置了一个 MiniMax M3 Provider，作为增量智能体选项，不会替换或移除默认 Doubao Provider。
+本项目内置了一个 MiniMax Provider，作为增量智能体选项，不会替换或移除默认 Doubao Provider。
 
 资源位置：
 
@@ -186,15 +186,15 @@ resources/providers/minimax-m3/manifest.json
 resources/providers/minimax-m3/provider.bundle.js
 ```
 
-在桌面端设置页进入“智能体”，选择 **MiniMax M3**，填写 MiniMax API Key 后保存并启用即可。
+在桌面端设置页进入“智能体”，选择 **MiniMax**，填写 MiniMax API Key 和具体模型名称后保存并启用即可。
 
 默认配置：
 
 ```text
 Base URL: https://api.minimax.io/v1
-Model: MiniMax-M3
+Model: MiniMax-M3（默认值，可改成其他 MiniMax 模型名称）
 Thinking: adaptive
 ```
 
-MiniMax M3 Provider 使用 OpenAI 兼容的 `/chat/completions` 接口，并把桌面截图作为 `image_url` 传入。
+MiniMax Provider 使用 OpenAI 兼容的 `/chat/completions` 接口，并把桌面截图作为 `image_url` 传入。
 启用 `adaptive` thinking 时，Provider 会请求 `reasoning_split: true`，并在返回前防御性移除 `<think>...</think>` 内容，避免把推理过程发送到聊天窗口。

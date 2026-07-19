@@ -180,8 +180,8 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
   },
   {
     id: 'minimax-m3',
-    name: 'MiniMax M3',
-    description: '内置聊天回复 Provider。填写 MiniMax API Key 后，可作为主回复模型启用。',
+    name: 'MiniMax',
+    description: '内置聊天回复 Provider。填写 MiniMax API Key，并指定模型名称后可启用。',
     version: '1.0.0',
     manifestUrl: 'builtin://minimax-m3',
     capabilities: ['chat'],
@@ -223,7 +223,7 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
           key: 'systemPrompt',
           label: '系统提示词',
           type: 'textarea',
-          placeholder: '可选：为 MiniMax M3 填写自定义系统提示词。'
+          placeholder: '可选：调整 MiniMax 的聊天回复策略。'
         }
       ]
     }
@@ -239,7 +239,7 @@ const VISION_PRESETS = [
   },
   {
     id: 'minimax-m3',
-    label: 'MiniMax M3',
+    label: 'MiniMax',
     model: 'MiniMax-M3',
     baseURL: 'https://api.minimax.io/v1'
   }
