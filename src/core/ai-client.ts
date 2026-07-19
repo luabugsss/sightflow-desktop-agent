@@ -158,7 +158,7 @@ export class AIClient {
    * 在非火山供应商上会被忽略，放在这里不影响兼容性
    */
   private async callAPI(messages: any[]): Promise<any> {
-    const url = `${this.config.baseURL}/chat/completions`
+    const url = `${this.trimTrailingSlash(this.config.baseURL)}/chat/completions`
     const TIMEOUT_MS = 30_000 // 30 秒超时
     const callStart = Date.now()
 
@@ -230,5 +230,9 @@ export class AIClient {
   private stripBase64Prefix(base64: string): string {
     const idx = base64.indexOf('base64,')
     return idx !== -1 ? base64.slice(idx + 'base64,'.length) : base64
+  }
+
+  private trimTrailingSlash(value: string): string {
+    return String(value || DEFAULT_BASE_URL).replace(/\/+$/, '')
   }
 }

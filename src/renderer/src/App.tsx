@@ -199,7 +199,6 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
           label: '模型',
           type: 'text',
           required: true,
-          readonly: true,
           defaultValue: 'MiniMax-M3'
         },
         {
@@ -207,7 +206,7 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
           label: '服务地址',
           type: 'url',
           required: true,
-          defaultValue: 'https://api.minimax.io/v1'
+          defaultValue: 'https://token-plan-cn.xiaomimimo.com/v1'
         },
         {
           key: 'thinking',
@@ -242,6 +241,12 @@ const VISION_PRESETS = [
     label: 'MiniMax',
     model: 'MiniMax-M3',
     baseURL: 'https://api.minimax.io/v1'
+  },
+  {
+    id: 'minimax-token-plan-cn',
+    label: 'MiniMax Token Plan CN',
+    model: 'MiniMax-M3',
+    baseURL: 'https://token-plan-cn.xiaomimimo.com/v1'
   }
 ] as const
 
@@ -841,7 +846,7 @@ function SettingsPanel() {
             className="form-input"
             value={visionBaseURL}
             onChange={(event) => setVisionBaseURL(event.target.value)}
-            placeholder="https://api.minimax.io/v1"
+            placeholder="https://token-plan-cn.xiaomimimo.com/v1"
           />
         </div>
 
