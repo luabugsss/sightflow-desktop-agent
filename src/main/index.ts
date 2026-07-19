@@ -1181,14 +1181,27 @@ function normalizeSettings(raw: any): AppSettings {
   ) {
     rawProviderConfig.baseURL = MINIMAX_TOKEN_PLAN_BASE_URL
   }
+  const isMiniMaxActive = isBuiltinMinimaxProviderId(raw?.chatProvider?.installed?.id)
+  const visionApiKey = isMiniMaxActive
+    ? String(raw?.vision?.apiKey || rawProviderConfig.apiKey || oldApiKey || '').trim()
+    : String(raw?.vision?.apiKey || oldApiKey || '').trim()
+  const visionModel = isMiniMaxActive
+    ? raw?.vision?.model || rawProviderConfig.model || FIXED_ARK_MODEL
+    : raw?.vision?.model || FIXED_ARK_MODEL
+  const visionBaseURL = isMiniMaxActive
+    ? raw?.vision?.baseURL ||
+      raw?.vision?.baseUrl ||
+      rawProviderConfig.baseURL ||
+      MINIMAX_TOKEN_PLAN_BASE_URL
+    : rawVisionBaseURL
 
   return {
     locale: raw?.locale === 'en' ? 'en' : 'zh',
     appType: coerceAppType(raw?.appType),
     vision: {
-      apiKey: raw?.vision?.apiKey || oldApiKey || '',
-      model: raw?.vision?.model || FIXED_ARK_MODEL,
-      baseURL: normalizeMiniMaxBaseURL(rawVisionBaseURL)
+      apiKey: visionApiKey,
+      model: visionModel,
+      baseURL: normalizeMiniMaxBaseURL(visionBaseURL)
     },
     chatProvider: {
       manifestUrl: raw?.chatProvider?.manifestUrl || raw?.providerManifestUrl || '',

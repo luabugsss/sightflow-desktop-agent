@@ -45,7 +45,7 @@ export class AIClient {
 
   constructor(config: Partial<AIClientConfig> & { apiKey: string }) {
     this.config = {
-      apiKey: config.apiKey.trim(),
+      apiKey: String(config.apiKey || '').trim(),
       model: config.model || DEFAULT_MODEL,
       baseURL: config.baseURL || DEFAULT_BASE_URL,
       systemPrompt: config.systemPrompt || REPLY_SYSTEM_PROMPT
@@ -181,7 +181,7 @@ export class AIClient {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
+          Authorization: this.buildAuthorizationHeader(this.config.apiKey),
           'Content-Type': 'application/json'
         },
         body: bodyStr,
@@ -234,5 +234,18 @@ export class AIClient {
 
   private trimTrailingSlash(value: string): string {
     return String(value || DEFAULT_BASE_URL).replace(/\/+$/, '')
+  }
+
+  private normalizeApiKey(value: string): string {
+    return String(value || '').replace(/\s+/g, '')
+  }
+
+  private buildAuthorizationHeader(apiKey: string): string {
+    const value = String(apiKey || '').trim()
+    const bearerMatch = value.match(/^bearer\s+(.+)$/i)
+    if (bearerMatch) {
+      return `Bearer ${this.normalizeApiKey(bearerMatch[1])}`
+    }
+    return `Bearer ${this.normalizeApiKey(value)}`
   }
 }

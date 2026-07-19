@@ -93,7 +93,7 @@ async function requestReply({ screenshot, apiKey, baseURL, model, thinking, syst
   const response = await fetch(`${trimTrailingSlash(baseURL)}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: buildAuthorizationHeader(apiKey),
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(body)
@@ -149,6 +149,19 @@ function stripThinkingContent(content) {
   return String(content || '')
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .trim()
+}
+
+function normalizeApiKey(value) {
+  return String(value || '').replace(/\s+/g, '')
+}
+
+function buildAuthorizationHeader(apiKey) {
+  const value = String(apiKey || '').trim()
+  const bearerMatch = value.match(/^bearer\s+(.+)$/i)
+  if (bearerMatch) {
+    return `Bearer ${normalizeApiKey(bearerMatch[1])}`
+  }
+  return `Bearer ${normalizeApiKey(value)}`
 }
 
 async function safeReadText(response) {
