@@ -5,7 +5,7 @@
 // 所有感知和动作能力在这里汇聚
 
 import { DesktopDevice } from './device'
-import { AIClient } from './ai-client'
+import { AIClient, AIClientConfig } from './ai-client'
 import { AppType } from './rpa/types'
 import { BBox } from './rpa/vision-utils'
 import { captureChatMainArea } from './rpa/screenshot-utils'
@@ -40,6 +40,11 @@ export class RPADevice implements DesktopDevice {
   setApiKey(apiKey: string): void {
     if (!apiKey) return
     this.aiClient = new AIClient({ apiKey })
+  }
+
+  setVisionConfig(config: Partial<AIClientConfig> & { apiKey: string }): void {
+    if (!config.apiKey) return
+    this.aiClient = new AIClient(config)
   }
 
   // ── 生命周期 ──

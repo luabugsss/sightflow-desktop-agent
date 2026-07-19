@@ -126,6 +126,8 @@ interface AppSettings {
   appType: AppType
   vision: {
     apiKey: string
+    model: string
+    baseURL: string
   }
   chatProvider: {
     manifestUrl: string
@@ -179,7 +181,7 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
   {
     id: 'minimax-m3',
     name: 'MiniMax M3',
-    description: 'Built-in MiniMax M3 provider for chat analysis and reply generation.',
+    description: '内置聊天回复 Provider。填写 MiniMax API Key 后，可作为主回复模型启用。',
     version: '1.0.0',
     manifestUrl: 'builtin://minimax-m3',
     capabilities: ['chat'],
@@ -187,14 +189,14 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
       fields: [
         {
           key: 'apiKey',
-          label: 'API Key',
+          label: 'MiniMax API Key',
           type: 'password',
           required: true,
-          placeholder: 'Enter MiniMax API Key'
+          placeholder: '输入 MiniMax API Key'
         },
         {
           key: 'model',
-          label: 'Model',
+          label: '模型',
           type: 'text',
           required: true,
           readonly: true,
@@ -202,31 +204,46 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
         },
         {
           key: 'baseURL',
-          label: 'Base URL',
+          label: '服务地址',
           type: 'url',
           required: true,
           defaultValue: 'https://api.minimax.io/v1'
         },
         {
           key: 'thinking',
-          label: 'Thinking',
+          label: '思考模式',
           type: 'select',
           defaultValue: 'adaptive',
           options: [
-            { label: 'Adaptive', value: 'adaptive' },
-            { label: 'Disabled', value: 'disabled' }
+            { label: '自适应', value: 'adaptive' },
+            { label: '关闭', value: 'disabled' }
           ]
         },
         {
           key: 'systemPrompt',
-          label: 'System Prompt',
+          label: '系统提示词',
           type: 'textarea',
-          placeholder: 'Optional custom system prompt for MiniMax M3.'
+          placeholder: '可选：为 MiniMax M3 填写自定义系统提示词。'
         }
       ]
     }
   }
 ]
+
+const VISION_PRESETS = [
+  {
+    id: 'volcengine-ark',
+    label: '火山方舟 / Doubao',
+    model: 'doubao-seed-2-0-lite-260215',
+    baseURL: 'https://ark.cn-beijing.volces.com/api/v3'
+  },
+  {
+    id: 'minimax-m3',
+    label: 'MiniMax M3',
+    model: 'MiniMax-M3',
+    baseURL: 'https://api.minimax.io/v1'
+  }
+] as const
 
 const PlayIcon = () => (
   <svg viewBox="0 0 24 24" fill="currentColor">
@@ -711,6 +728,8 @@ function SettingsWindow(): React.JSX.Element {
 
 function SettingsPanel() {
   const [visionApiKey, setVisionApiKey] = useState('')
+  const [visionModel, setVisionModel] = useState<string>(VISION_PRESETS[0].model)
+  const [visionBaseURL, setVisionBaseURL] = useState<string>(VISION_PRESETS[0].baseURL)
   const [testing, setTesting] = useState(false)
 
   useEffect(() => {
@@ -718,6 +737,8 @@ function SettingsPanel() {
       const settings = (await window.electron?.invoke('settings:getAll')) as AppSettings | undefined
       if (settings) {
         setVisionApiKey(settings.vision?.apiKey || '')
+        setVisionModel(settings.vision?.model || VISION_PRESETS[0].model)
+        setVisionBaseURL(settings.vision?.baseURL || VISION_PRESETS[0].baseURL)
       }
     }
 
@@ -726,23 +747,25 @@ function SettingsPanel() {
 
   const handleSaveVision = useCallback(async () => {
     const payload: Partial<AppSettings> = {
-      vision: { apiKey: visionApiKey }
+      vision: { apiKey: visionApiKey, model: visionModel, baseURL: visionBaseURL }
     }
     await window.electron?.invoke('settings:set', payload)
     await window.electron?.invoke('engine:updateConfig', {
       ...((await window.electron?.invoke('settings:getAll')) as AppSettings),
       ...payload,
-      vision: { apiKey: visionApiKey }
+      vision: { apiKey: visionApiKey, model: visionModel, baseURL: visionBaseURL }
     })
     showToast(t('settings.saved'), 'success')
-  }, [visionApiKey])
+  }, [visionApiKey, visionModel, visionBaseURL])
 
   const handleTestConnection = useCallback(async () => {
     if (!visionApiKey) return
     setTesting(true)
     try {
       const result = await window.electron?.invoke('engine:testConnection', {
-        apiKey: visionApiKey
+        apiKey: visionApiKey,
+        model: visionModel,
+        baseURL: visionBaseURL
       })
       if (result?.success) {
         showToast(t('settings.testConnection.success'), 'success')
@@ -754,7 +777,7 @@ function SettingsPanel() {
     } finally {
       setTesting(false)
     }
-  }, [visionApiKey])
+  }, [visionApiKey, visionModel, visionBaseURL])
 
   return (
     <div className="settings-page slide-up">
@@ -782,13 +805,44 @@ function SettingsPanel() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">{t('settings.visionPreset')}</label>
+          <select
+            className="form-input"
+            value={getVisionPresetId(visionModel, visionBaseURL)}
+            onChange={(event) => {
+              const preset = VISION_PRESETS.find((item) => item.id === event.target.value)
+              if (!preset) return
+              setVisionModel(preset.model)
+              setVisionBaseURL(preset.baseURL)
+            }}
+          >
+            {VISION_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+            <option value="custom">{t('settings.visionPreset.custom')}</option>
+          </select>
+        </div>
+
+        <div className="form-group">
           <label className="form-label">{t('settings.visionModel')}</label>
-          <input className="form-input" value="doubao-seed-2-0-lite-260215" disabled />
+          <input
+            className="form-input"
+            value={visionModel}
+            onChange={(event) => setVisionModel(event.target.value)}
+            placeholder="MiniMax-M3"
+          />
         </div>
 
         <div className="form-group">
           <label className="form-label">{t('settings.visionBaseUrl')}</label>
-          <input className="form-input" value="https://ark.cn-beijing.volces.com/api/v3" disabled />
+          <input
+            className="form-input"
+            value={visionBaseURL}
+            onChange={(event) => setVisionBaseURL(event.target.value)}
+            placeholder="https://api.minimax.io/v1"
+          />
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
@@ -1113,6 +1167,11 @@ function mergeProviderCatalog(remoteProviders: ProviderCatalogItem[]): ProviderC
 function getCatalogProviderId(providerId: string | null | undefined): string {
   if (!providerId || providerId === 'volcengine-ark') return 'doubao'
   return providerId
+}
+
+function getVisionPresetId(model: string, baseURL: string): string {
+  const preset = VISION_PRESETS.find((item) => item.model === model && item.baseURL === baseURL)
+  return preset?.id || 'custom'
 }
 
 function getProviderDefaults(provider: ProviderCatalogItem | undefined): Record<string, string> {

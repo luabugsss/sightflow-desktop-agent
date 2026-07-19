@@ -61,6 +61,8 @@ interface AppSettings {
   appType: AppType
   vision: {
     apiKey: string
+    model: string
+    baseURL: string
   }
   chatProvider: {
     manifestUrl: string
@@ -129,7 +131,11 @@ const settingsStore = new StoreClass({
   defaults: {
     locale: 'zh',
     appType: 'wechat',
-    vision: { apiKey: '' },
+    vision: {
+      apiKey: '',
+      model: FIXED_ARK_MODEL,
+      baseURL: FIXED_ARK_BASE_URL
+    },
     chatProvider: {
       manifestUrl: '',
       installed: null,
@@ -687,6 +693,11 @@ app.whenReady().then(async () => {
     if (runtimeDevice) {
       // setApiKey 在 BoxSelectDevice 上是 no-op，对 RPADevice 才生效。
       runtimeDevice.setApiKey(settings.vision.apiKey)
+      if (runtimeDevice.setVisionConfig) {
+        runtimeDevice.setVisionConfig(settings.vision)
+      } else {
+        runtimeDevice.setApiKey(settings.vision.apiKey)
+      }
       runtimeDevice.setAppType(settings.appType)
     }
     if (runtime) {
@@ -696,11 +707,12 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('engine:testConnection', async (_event, config) => {
-    const apiKey = config?.apiKey || normalizeSettings(settingsStore.store).vision.apiKey
+    const settings = normalizeSettings(settingsStore.store)
+    const apiKey = config?.apiKey || settings.vision.apiKey
     const client = new AIClient({
       apiKey,
-      model: FIXED_ARK_MODEL,
-      baseURL: FIXED_ARK_BASE_URL
+      model: config?.model || settings.vision.model,
+      baseURL: config?.baseURL || settings.vision.baseURL
     })
     return client.testConnection()
   })
@@ -877,7 +889,7 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
     let device: DesktopDevice
     let strategy: CaptureStrategy
     try {
-      const built = await buildDevice(appType, settings, settings.vision.apiKey, log)
+      const built = await buildDevice(appType, settings, log)
       device = built.device
       strategy = built.strategy
     } catch (err: any) {
@@ -1010,7 +1022,6 @@ function resolveSettingsStrategy(appType: AppType, settings: AppSettings): Captu
 async function buildDevice(
   appType: AppType,
   settings: AppSettings,
-  apiKey: string,
   log: (type: 'thinking' | 'reply' | 'skip' | 'error', content: string) => void
 ): Promise<{ device: DesktopDevice; strategy: CaptureStrategy }> {
   const perApp = settings.capture[appType] ?? { strategy: 'auto' as CaptureStrategy, regions: null }
@@ -1019,7 +1030,7 @@ async function buildDevice(
   if (effective === 'vlm') {
     const rpa = new RPADevice()
     rpa.setAppType(appType)
-    rpa.setApiKey(apiKey)
+    rpa.setVisionConfig(settings.vision)
     return { device: rpa, strategy: 'vlm' }
   }
 
@@ -1155,7 +1166,9 @@ function normalizeSettings(raw: any): AppSettings {
     locale: raw?.locale === 'en' ? 'en' : 'zh',
     appType: coerceAppType(raw?.appType),
     vision: {
-      apiKey: raw?.vision?.apiKey || oldApiKey || ''
+      apiKey: raw?.vision?.apiKey || oldApiKey || '',
+      model: raw?.vision?.model || FIXED_ARK_MODEL,
+      baseURL: raw?.vision?.baseURL || raw?.vision?.baseUrl || FIXED_ARK_BASE_URL
     },
     chatProvider: {
       manifestUrl: raw?.chatProvider?.manifestUrl || raw?.providerManifestUrl || '',

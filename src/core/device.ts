@@ -11,11 +11,13 @@
 
 import { AppType } from './rpa/types'
 import { BBox } from './rpa/vision-utils'
+import { AIClientConfig } from './ai-client'
 
 export interface DesktopDevice {
   // ── 配置 ──
   setAppType(appType: AppType): void
   setApiKey(apiKey: string): void
+  setVisionConfig?(config: Partial<AIClientConfig> & { apiKey: string }): void
 
   // ── 生命周期 ──
   // session 启停时由 GenericChannelSession 调用，给设备机会做缓存初始化 / 清理。
