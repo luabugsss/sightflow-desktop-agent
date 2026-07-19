@@ -21,7 +21,7 @@
       "baseURL": {
         "type": "string",
         "title": "Base URL",
-        "default": "https://token-plan-cn.xiaomimimo.com/v1"
+        "default": "https://api.minimaxi.com/v1"
       },
       "thinking": {
         "type": "select",

@@ -45,7 +45,7 @@ export class AIClient {
 
   constructor(config: Partial<AIClientConfig> & { apiKey: string }) {
     this.config = {
-      apiKey: config.apiKey,
+      apiKey: config.apiKey.trim(),
       model: config.model || DEFAULT_MODEL,
       baseURL: config.baseURL || DEFAULT_BASE_URL,
       systemPrompt: config.systemPrompt || REPLY_SYSTEM_PROMPT

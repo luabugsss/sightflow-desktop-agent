@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 
 const DEFAULT_MODEL = 'MiniMax-M3'
-const DEFAULT_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
+const DEFAULT_BASE_URL = 'https://api.minimaxi.com/v1'
 const DEFAULT_THINKING = 'adaptive'
 const DEFAULT_PROMPT = `You are a desktop chat assistant. You will receive a screenshot of the current chat window.
 
@@ -30,7 +30,7 @@ export function createProvider(context) {
         return
       }
 
-      const apiKey = providerConfig.apiKey
+      const apiKey = String(providerConfig.apiKey || '').trim()
       if (!apiKey) {
         yield { type: 'error', error: 'MiniMax provider is missing API Key' }
         return

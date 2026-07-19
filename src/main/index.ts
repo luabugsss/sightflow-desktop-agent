@@ -52,7 +52,8 @@ const StoreClass = typeof Store === 'function' ? Store : ((Store as any).default
 const FIXED_ARK_MODEL = 'doubao-seed-2-0-lite-260215'
 const FIXED_ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
 const MINIMAX_STANDARD_BASE_URL = 'https://api.minimax.io/v1'
-const MINIMAX_TOKEN_PLAN_CN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
+const MINIMAX_OLD_TOKEN_PLAN_CN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
+const MINIMAX_TOKEN_PLAN_BASE_URL = 'https://api.minimaxi.com/v1'
 
 interface PerAppCapture {
   strategy: CaptureStrategy
@@ -1157,6 +1158,7 @@ function normalizeSettings(raw: any): AppSettings {
   const oldApiKey = typeof raw?.apiKey === 'string' ? raw.apiKey : ''
   const oldModel = typeof raw?.model === 'string' && raw.model ? raw.model : FIXED_ARK_MODEL
   const oldSystemPrompt = typeof raw?.systemPrompt === 'string' ? raw.systemPrompt : ''
+  const rawVisionBaseURL = raw?.vision?.baseURL || raw?.vision?.baseUrl || FIXED_ARK_BASE_URL
   const rawProviderConfig =
     raw?.chatProvider?.config && typeof raw.chatProvider.config === 'object'
       ? { ...raw.chatProvider.config }
@@ -1174,9 +1176,10 @@ function normalizeSettings(raw: any): AppSettings {
   }
   if (
     isBuiltinMinimaxProviderId(raw?.chatProvider?.installed?.id) &&
-    rawProviderConfig.baseURL === MINIMAX_STANDARD_BASE_URL
+    (rawProviderConfig.baseURL === MINIMAX_STANDARD_BASE_URL ||
+      rawProviderConfig.baseURL === MINIMAX_OLD_TOKEN_PLAN_CN_BASE_URL)
   ) {
-    rawProviderConfig.baseURL = MINIMAX_TOKEN_PLAN_CN_BASE_URL
+    rawProviderConfig.baseURL = MINIMAX_TOKEN_PLAN_BASE_URL
   }
 
   return {
@@ -1185,7 +1188,7 @@ function normalizeSettings(raw: any): AppSettings {
     vision: {
       apiKey: raw?.vision?.apiKey || oldApiKey || '',
       model: raw?.vision?.model || FIXED_ARK_MODEL,
-      baseURL: raw?.vision?.baseURL || raw?.vision?.baseUrl || FIXED_ARK_BASE_URL
+      baseURL: normalizeMiniMaxBaseURL(rawVisionBaseURL)
     },
     chatProvider: {
       manifestUrl: raw?.chatProvider?.manifestUrl || raw?.providerManifestUrl || '',
@@ -1195,6 +1198,14 @@ function normalizeSettings(raw: any): AppSettings {
     defaultCaptureStrategy: coerceStrategy(raw?.defaultCaptureStrategy, 'auto'),
     capture: normalizeCapture(raw?.capture)
   }
+}
+
+function normalizeMiniMaxBaseURL(value: unknown): string {
+  const baseURL = String(value || '')
+  if (baseURL === MINIMAX_STANDARD_BASE_URL || baseURL === MINIMAX_OLD_TOKEN_PLAN_CN_BASE_URL) {
+    return MINIMAX_TOKEN_PLAN_BASE_URL
+  }
+  return baseURL
 }
 
 function withSchemaDefaults(

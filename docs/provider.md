@@ -191,7 +191,7 @@ resources/providers/minimax-m3/provider.bundle.js
 默认配置：
 
 ```text
-Base URL（订阅模式 / Token Plan 中国区）: https://token-plan-cn.xiaomimimo.com/v1
+Base URL（订阅模式 / Token Plan）: https://api.minimaxi.com/v1
 Base URL（普通 API）: https://api.minimax.io/v1
 Model: MiniMax-M3（默认值，可改成其他 MiniMax 模型名称）
 Thinking: adaptive

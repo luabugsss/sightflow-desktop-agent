@@ -46,7 +46,8 @@ const APP_TYPE_LABELS: Record<AppType, string> = {
 const VLM_SUPPORTED_APPS: AppType[] = ['wechat', 'wework']
 const MINIMAX_PROVIDER_ID = 'minimax-m3'
 const MINIMAX_STANDARD_BASE_URL = 'https://api.minimax.io/v1'
-const MINIMAX_TOKEN_PLAN_CN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
+const MINIMAX_OLD_TOKEN_PLAN_CN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
+const MINIMAX_TOKEN_PLAN_BASE_URL = 'https://api.minimaxi.com/v1'
 
 function isVlmSupported(appType: AppType): boolean {
   return VLM_SUPPORTED_APPS.includes(appType)
@@ -209,7 +210,7 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
           label: '服务地址',
           type: 'url',
           required: true,
-          defaultValue: MINIMAX_TOKEN_PLAN_CN_BASE_URL
+          defaultValue: MINIMAX_TOKEN_PLAN_BASE_URL
         },
         {
           key: 'thinking',
@@ -249,7 +250,7 @@ const VISION_PRESETS = [
     id: 'minimax-token-plan-cn',
     label: 'MiniMax Token Plan CN',
     model: 'MiniMax-M3',
-    baseURL: MINIMAX_TOKEN_PLAN_CN_BASE_URL
+    baseURL: MINIMAX_TOKEN_PLAN_BASE_URL
   }
 ] as const
 
@@ -865,7 +866,7 @@ function SettingsPanel() {
             className="form-input"
             value={visionBaseURL}
             onChange={(event) => setVisionBaseURL(event.target.value)}
-            placeholder={MINIMAX_TOKEN_PLAN_CN_BASE_URL}
+            placeholder={MINIMAX_TOKEN_PLAN_BASE_URL}
           />
         </div>
 
@@ -1258,8 +1259,11 @@ function normalizeProviderConfig(
   if (providerId !== MINIMAX_PROVIDER_ID) {
     return normalized
   }
-  if (normalized.baseURL === MINIMAX_STANDARD_BASE_URL) {
-    normalized.baseURL = MINIMAX_TOKEN_PLAN_CN_BASE_URL
+  if (
+    normalized.baseURL === MINIMAX_STANDARD_BASE_URL ||
+    normalized.baseURL === MINIMAX_OLD_TOKEN_PLAN_CN_BASE_URL
+  ) {
+    normalized.baseURL = MINIMAX_TOKEN_PLAN_BASE_URL
   }
   return mergeMiniMaxVisionConfig(normalized, settings)
 }
@@ -1273,7 +1277,12 @@ function mergeMiniMaxVisionConfig(
   if (!vision) return next
   if (!next.apiKey && vision.apiKey) next.apiKey = vision.apiKey
   if (!next.model && vision.model) next.model = vision.model
-  if ((!next.baseURL || next.baseURL === MINIMAX_STANDARD_BASE_URL) && vision.baseURL) {
+  if (
+    (!next.baseURL ||
+      next.baseURL === MINIMAX_STANDARD_BASE_URL ||
+      next.baseURL === MINIMAX_OLD_TOKEN_PLAN_CN_BASE_URL) &&
+    vision.baseURL
+  ) {
     next.baseURL = vision.baseURL
   }
   return next
