@@ -25,6 +25,7 @@ import {
   installProviderFromUrl,
   InstalledProviderInfo,
   isBuiltinDoubaoProviderId,
+  isBuiltinMinimaxProviderId,
   isBuiltinProviderId,
   loadBuiltinProvider,
   loadBuiltinDoubaoProvider,
@@ -50,6 +51,8 @@ const StoreClass = typeof Store === 'function' ? Store : ((Store as any).default
 
 const FIXED_ARK_MODEL = 'doubao-seed-2-0-lite-260215'
 const FIXED_ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
+const MINIMAX_STANDARD_BASE_URL = 'https://api.minimax.io/v1'
+const MINIMAX_TOKEN_PLAN_CN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
 
 interface PerAppCapture {
   strategy: CaptureStrategy
@@ -854,8 +857,9 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
         : await getInstalledProviderManifest(settings.chatProvider.installed)
       // doubao（无论是用户主动装的还是内置的）apiKey 由视觉密钥共享提供，不强校验
       const isDoubao = isBuiltinDoubaoProviderId(settings.chatProvider.installed.id)
+      const isMiniMax = isBuiltinMinimaxProviderId(settings.chatProvider.installed.id)
       const required = (installedManifest?.configSchema?.required || []).filter(
-        (key) => !(isDoubao && key === 'apiKey')
+        (key) => !((isDoubao || isMiniMax) && key === 'apiKey')
       )
       const missing = required.find((key) => {
         const value = settings.chatProvider.config?.[key]
@@ -871,7 +875,14 @@ async function startEngineCore(rawConfig?: any): Promise<SkillStartResult> {
 
       const effectiveConfig = isDoubao
         ? { ...settings.chatProvider.config, apiKey: settings.vision.apiKey }
-        : settings.chatProvider.config
+        : isMiniMax
+          ? {
+              ...settings.chatProvider.config,
+              apiKey: settings.chatProvider.config.apiKey || settings.vision.apiKey,
+              model: settings.chatProvider.config.model || settings.vision.model,
+              baseURL: settings.chatProvider.config.baseURL || settings.vision.baseURL
+            }
+          : settings.chatProvider.config
 
       const loaded = isBuiltinProviderId(settings.chatProvider.installed.id)
         ? await loadBuiltinProvider(settings.chatProvider.installed.id, effectiveConfig)
@@ -1160,6 +1171,12 @@ function normalizeSettings(raw: any): AppSettings {
   }
   if (rawProviderConfig.systemPrompt === undefined && oldSystemPrompt) {
     rawProviderConfig.systemPrompt = oldSystemPrompt
+  }
+  if (
+    isBuiltinMinimaxProviderId(raw?.chatProvider?.installed?.id) &&
+    rawProviderConfig.baseURL === MINIMAX_STANDARD_BASE_URL
+  ) {
+    rawProviderConfig.baseURL = MINIMAX_TOKEN_PLAN_CN_BASE_URL
   }
 
   return {

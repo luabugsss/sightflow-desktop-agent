@@ -30,6 +30,10 @@ export function isBuiltinDoubaoProviderId(id: string | null | undefined): boolea
   return id === BUILTIN_DOUBAO_PROVIDER_ID
 }
 
+export function isBuiltinMinimaxProviderId(id: string | null | undefined): boolean {
+  return id === BUILTIN_MINIMAX_M3_PROVIDER_ID
+}
+
 function normalizeBuiltinProviderId(id: string): BuiltinProviderId | null {
   if (id === 'doubao') return BUILTIN_DOUBAO_PROVIDER_ID
   return isBuiltinProviderId(id) ? id : null

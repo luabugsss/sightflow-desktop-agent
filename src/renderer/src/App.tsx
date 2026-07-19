@@ -44,6 +44,9 @@ const APP_TYPE_LABELS: Record<AppType, string> = {
 }
 
 const VLM_SUPPORTED_APPS: AppType[] = ['wechat', 'wework']
+const MINIMAX_PROVIDER_ID = 'minimax-m3'
+const MINIMAX_STANDARD_BASE_URL = 'https://api.minimax.io/v1'
+const MINIMAX_TOKEN_PLAN_CN_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1'
 
 function isVlmSupported(appType: AppType): boolean {
   return VLM_SUPPORTED_APPS.includes(appType)
@@ -206,7 +209,7 @@ const BUILTIN_PROVIDER_CATALOG: ProviderCatalogItem[] = [
           label: '服务地址',
           type: 'url',
           required: true,
-          defaultValue: 'https://token-plan-cn.xiaomimimo.com/v1'
+          defaultValue: MINIMAX_TOKEN_PLAN_CN_BASE_URL
         },
         {
           key: 'thinking',
@@ -237,16 +240,16 @@ const VISION_PRESETS = [
     baseURL: 'https://ark.cn-beijing.volces.com/api/v3'
   },
   {
-    id: 'minimax-m3',
+    id: MINIMAX_PROVIDER_ID,
     label: 'MiniMax',
     model: 'MiniMax-M3',
-    baseURL: 'https://api.minimax.io/v1'
+    baseURL: MINIMAX_STANDARD_BASE_URL
   },
   {
     id: 'minimax-token-plan-cn',
     label: 'MiniMax Token Plan CN',
     model: 'MiniMax-M3',
-    baseURL: 'https://token-plan-cn.xiaomimimo.com/v1'
+    baseURL: MINIMAX_TOKEN_PLAN_CN_BASE_URL
   }
 ] as const
 
@@ -751,14 +754,30 @@ function SettingsPanel() {
   }, [])
 
   const handleSaveVision = useCallback(async () => {
+    const current = ((await window.electron?.invoke('settings:getAll')) as AppSettings) || null
+    const isMiniMaxActive = current?.chatProvider?.installed?.id === MINIMAX_PROVIDER_ID
+    const nextVision = { apiKey: visionApiKey, model: visionModel, baseURL: visionBaseURL }
     const payload: Partial<AppSettings> = {
-      vision: { apiKey: visionApiKey, model: visionModel, baseURL: visionBaseURL }
+      vision: nextVision,
+      ...(isMiniMaxActive
+        ? {
+            chatProvider: {
+              ...current.chatProvider,
+              config: {
+                ...current.chatProvider.config,
+                apiKey: visionApiKey,
+                model: visionModel,
+                baseURL: visionBaseURL
+              }
+            }
+          }
+        : {})
     }
     await window.electron?.invoke('settings:set', payload)
     await window.electron?.invoke('engine:updateConfig', {
-      ...((await window.electron?.invoke('settings:getAll')) as AppSettings),
+      ...(((await window.electron?.invoke('settings:getAll')) as AppSettings) || {}),
       ...payload,
-      vision: { apiKey: visionApiKey, model: visionModel, baseURL: visionBaseURL }
+      vision: nextVision
     })
     showToast(t('settings.saved'), 'success')
   }, [visionApiKey, visionModel, visionBaseURL])
@@ -846,7 +865,7 @@ function SettingsPanel() {
             className="form-input"
             value={visionBaseURL}
             onChange={(event) => setVisionBaseURL(event.target.value)}
-            placeholder="https://token-plan-cn.xiaomimimo.com/v1"
+            placeholder={MINIMAX_TOKEN_PLAN_CN_BASE_URL}
           />
         </div>
 
@@ -909,9 +928,9 @@ function AgentPanel(): React.JSX.Element {
           apiKey: prev.doubao?.apiKey || settings?.vision?.apiKey || ''
         },
         [nextActiveId]: {
-          ...getProviderDefaults(nextCatalog.find((provider) => provider.id === nextActiveId)),
+          ...getProviderDefaults(nextCatalog.find((provider) => provider.id === nextActiveId), settings || null),
           ...(prev[nextActiveId] || {}),
-          ...(settings?.chatProvider?.config || {})
+          ...normalizeProviderConfig(nextActiveId, settings?.chatProvider?.config || {}, settings || null)
         }
       }))
 
@@ -980,7 +999,17 @@ function AgentPanel(): React.JSX.Element {
         return false
       }
 
+      const nextVision =
+        provider.id === MINIMAX_PROVIDER_ID
+          ? {
+              apiKey: values.apiKey,
+              model: values.model,
+              baseURL: values.baseURL
+            }
+          : undefined
+
       await window.electron?.invoke('settings:set', {
+        ...(nextVision ? { vision: nextVision } : {}),
         chatProvider: {
           manifestUrl: provider.manifestUrl,
           installed: installResult.installed,
@@ -1179,12 +1208,19 @@ function getVisionPresetId(model: string, baseURL: string): string {
   return preset?.id || 'custom'
 }
 
-function getProviderDefaults(provider: ProviderCatalogItem | undefined): Record<string, string> {
+function getProviderDefaults(
+  provider: ProviderCatalogItem | undefined,
+  settings?: AppSettings | null
+): Record<string, string> {
   if (!provider) return {}
-  return provider.configSchema.fields.reduce<Record<string, string>>((acc, field) => {
+  const defaults = provider.configSchema.fields.reduce<Record<string, string>>((acc, field) => {
     acc[field.key] = field.defaultValue || ''
     return acc
   }, {})
+  if (provider.id === MINIMAX_PROVIDER_ID) {
+    return mergeMiniMaxVisionConfig(defaults, settings)
+  }
+  return defaults
 }
 
 function getProviderValues(
@@ -1193,7 +1229,7 @@ function getProviderValues(
   settings: AppSettings | null
 ): Record<string, string> {
   if (!provider) return {}
-  const defaults = getProviderDefaults(provider)
+  const defaults = getProviderDefaults(provider, settings)
   if (provider.id === 'doubao') {
     return {
       ...defaults,
@@ -1204,9 +1240,43 @@ function getProviderValues(
   }
   return {
     ...defaults,
-    ...(settings?.chatProvider.installed?.id === provider.id ? settings.chatProvider.config : {}),
+    ...(settings?.chatProvider.installed?.id === provider.id
+      ? normalizeProviderConfig(provider.id, settings.chatProvider.config, settings)
+      : {}),
     ...(drafts[provider.id] || {})
   }
+}
+
+function normalizeProviderConfig(
+  providerId: string,
+  config: Record<string, any>,
+  settings: AppSettings | null
+): Record<string, string> {
+  const normalized = Object.fromEntries(
+    Object.entries(config || {}).map(([key, value]) => [key, String(value ?? '')])
+  )
+  if (providerId !== MINIMAX_PROVIDER_ID) {
+    return normalized
+  }
+  if (normalized.baseURL === MINIMAX_STANDARD_BASE_URL) {
+    normalized.baseURL = MINIMAX_TOKEN_PLAN_CN_BASE_URL
+  }
+  return mergeMiniMaxVisionConfig(normalized, settings)
+}
+
+function mergeMiniMaxVisionConfig(
+  config: Record<string, string>,
+  settings?: AppSettings | null
+): Record<string, string> {
+  const next = { ...config }
+  const vision = settings?.vision
+  if (!vision) return next
+  if (!next.apiKey && vision.apiKey) next.apiKey = vision.apiKey
+  if (!next.model && vision.model) next.model = vision.model
+  if ((!next.baseURL || next.baseURL === MINIMAX_STANDARD_BASE_URL) && vision.baseURL) {
+    next.baseURL = vision.baseURL
+  }
+  return next
 }
 
 function getMissingRequiredFields(
